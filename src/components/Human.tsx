@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, memo, MutableRefObject } from 'react';
 import type { Human, Config, Result } from '@vladmandic/human';
 import { Database } from '../libs/database'
 
@@ -7,7 +7,8 @@ const database = Database.instance;
 const config: Partial<Config> = {
     cacheSensitivity: 0,
     debug: false,
-    modelBasePath: 'https://cdn.jsdelivr.net/npm/@vladmandic/human/models',
+    // modelBasePath: 'https://cdn.jsdelivr.net/npm/@vladmandic/human/models',
+    modelBasePath: 'node_modules/@vladmandic/human-models/models',
     cacheModels: true,
     filter: {
         enabled: true,
@@ -17,8 +18,9 @@ const config: Partial<Config> = {
         enabled: true,
         detector: {
             rotation: true,
+            minConfidence: 0.2,
             return: true,
-            mask: true
+            mask: true,
         },
         description: { enabled: true },
         iris: { enabled: true },
@@ -34,25 +36,47 @@ const config: Partial<Config> = {
 
 interface FaceInfo {
     face?: Result
-    image?: ImageData
 }
 
 interface Props {
     inputId: string,
     outputId: string,
     sourceId: string,
-    faceInfoCb?: (data: FaceInfo) => void
+    moreInfo?: boolean,
+    faceInfoCb?: (data: FaceInfo) => void,
+    saveRef: MutableRefObject<HTMLButtonElement | null>
+    resetRef: MutableRefObject<HTMLButtonElement | null>
 };
 
-const RunHuman = ({ inputId, outputId, sourceId, faceInfoCb }: Props) => {
+const RunHuman = ({
+    inputId,
+    outputId,
+    sourceId,
+    saveRef,
+    resetRef,
+    moreInfo = false,
+    faceInfoCb,
+}: Props) => {
     const videoRef = useRef<HTMLVideoElement | null>(null);
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const sourceRef = useRef<HTMLCanvasElement | null>(null);
     const [human, setHuman] = useState<Human | undefined>();
     const [ready, setReady] = useState(false);
     const [frame, setFrame] = useState(0);
-    const [fps, setFps] = useState(0);
     const timestamp = useRef(0);
+    // const [fps, setFps] = useState(0);
+    // const [face, setFace] = useState<Result>();
+
+    const detect = async () => {
+        if (!human || !videoRef.current || !canvasRef.current) return;
+        await human.detect(videoRef.current);
+        const now = human.now();
+
+        // const fps = Math.round(1000 / (now - timestamp.current));
+        // setFps(fps);
+        timestamp.current = now;
+        setFrame(prev => ++prev);
+    }
 
     useEffect(() => {
         if (typeof document === 'undefined') return;
@@ -63,12 +87,13 @@ const RunHuman = ({ inputId, outputId, sourceId, faceInfoCb }: Props) => {
         database.settings().then(() => {
             import('@vladmandic/human').then((H) => {
                 const humanInstance = new (H as any).default(config) as Human;
-                humanInstance.load().then(() => {
-                    humanInstance.warmup().then(() => {
-                        setReady(true);
-                        setHuman(humanInstance);
-                        console.log('ready...');
-                    });
+                Promise.all([
+                    humanInstance.load(),
+                    humanInstance.warmup()
+                ]).then(() => {
+                    setReady(true);
+                    setHuman(humanInstance);
+                    console.log('ready...');
                 });
             });
         });
@@ -78,8 +103,8 @@ const RunHuman = ({ inputId, outputId, sourceId, faceInfoCb }: Props) => {
         if (videoRef.current) {
             videoRef.current.onresize = () => {
                 if (canvasRef.current) {
-                    canvasRef.current.width = videoRef.current!.videoWidth;
-                    canvasRef.current.height = videoRef.current!.videoHeight;
+                    // canvasRef.current.width = videoRef.current!.clientWidth;
+                    // canvasRef.current.height = videoRef.current!.clientHeight;
                 }
             }
         }
@@ -105,48 +130,59 @@ const RunHuman = ({ inputId, outputId, sourceId, faceInfoCb }: Props) => {
         frame
     ]);
 
-    const detect = async () => {
-        if (!human || !videoRef.current || !canvasRef.current) return;
-        await human.detect(videoRef.current);
-        const now = human.now();
+    useEffect(() => {
+        if (!videoRef.current || !canvasRef.current || !human || !human.result) return;
+        if (videoRef.current.paused) return
 
-        const fps = Math.round(1000 / (now - timestamp.current));
-        setFps(fps);
-        timestamp.current = now;
-        setFrame(prev => ++prev);
-    }
-
-    if (!videoRef.current || !canvasRef.current || !human || !human.result) return null;
-    if (!videoRef.current.paused) {
         const interpolated = human.next(human.result);
         human.draw.canvas(videoRef.current, canvasRef.current);
-        human.draw.all(canvasRef.current, interpolated);
-    }
+        moreInfo && human.draw.all(canvasRef.current, interpolated);
 
-    if (videoRef.current.paused) {
-        if (!faceInfoCb) return null;
-        const interpolated = human.next(human.result);
+    }, [
+        videoRef.current,
+        canvasRef.current,
+        human,
+        frame
+    ]);
 
-        const image = canvasRef?.current?.getContext('2d')?.getImageData(0, 0, canvasRef.current.width, canvasRef.current.height);
-        if (!image) return null;
+    useEffect(() => {
 
-        const saveToRecordPayload = {
-            name: `RANDOM-${fps}`,
-            desc: interpolated.face[0].embedding || [],
-            image
+        if (!saveRef.current || !resetRef.current) return;
+
+        saveRef.current.onclick = async () => {
+
+            if (!sourceRef.current || !canvasRef.current) return null;
+            videoRef.current?.pause();
+
+            const interpolated = human?.next(human.result);
+            if (!interpolated) return null;
+
+            const { width, height } = canvasRef.current
+
+            const image = canvasRef?.current?.getContext('2d')?.getImageData(0, 0, width, height);
+            if (!image) return null;
+
+            sourceRef.current.width = width
+            sourceRef.current.height = height
+
+            sourceRef.current?.getContext('2d')?.putImageData(image, 0, 0);
+
+            // setFace(interpolated);
+
+            if (typeof faceInfoCb === 'function') {
+                faceInfoCb?.({ face: interpolated });
+            }
         }
 
-        database.save(saveToRecordPayload)
+        resetRef.current.onclick = async () => {
+            console.log('reset')
+        }
+    }, [
+        resetRef,
+        saveRef,
+    ])
 
-        faceInfoCb({
-            face: interpolated,
-            image
-        });
-
-        sourceRef.current?.getContext('2d')?.putImageData(image, 0, 0);
-    }
-
-    return null;
+    return null
 };
 
-export default RunHuman;
+export default memo(RunHuman);
