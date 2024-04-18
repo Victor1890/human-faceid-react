@@ -32,25 +32,33 @@ const config: Partial<Config> = {
     gesture: { enabled: true },
 }
 
+interface FaceInfo {
+    face?: Result
+    image?: ImageData
+}
+
 interface Props {
     inputId: string,
     outputId: string,
-    callback?: (human: Result) => void
+    sourceId: string,
+    faceInfoCb?: (data: FaceInfo) => void
 };
 
-const RunHuman = ({ inputId, outputId, callback }: Props) => {
+const RunHuman = ({ inputId, outputId, sourceId, faceInfoCb }: Props) => {
     const videoRef = useRef<HTMLVideoElement | null>(null);
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
+    const sourceRef = useRef<HTMLCanvasElement | null>(null);
     const [human, setHuman] = useState<Human | undefined>();
     const [ready, setReady] = useState(false);
     const [frame, setFrame] = useState(0);
-    const [, setFps] = useState(0);
+    const [fps, setFps] = useState(0);
     const timestamp = useRef(0);
 
     useEffect(() => {
         if (typeof document === 'undefined') return;
         videoRef.current = document.getElementById(inputId) as HTMLVideoElement || document.createElement('video');
         canvasRef.current = document.getElementById(outputId) as HTMLCanvasElement || document.createElement('canvas');
+        sourceRef.current = document.getElementById(sourceId) as HTMLCanvasElement || document.createElement('source');
 
         database.settings().then(() => {
             import('@vladmandic/human').then((H) => {
@@ -92,8 +100,8 @@ const RunHuman = ({ inputId, outputId, callback }: Props) => {
             detect();
         }
     }, [
-        // ready,
-        // human,
+        ready,
+        human,
         frame
     ]);
 
@@ -102,10 +110,7 @@ const RunHuman = ({ inputId, outputId, callback }: Props) => {
         await human.detect(videoRef.current);
         const now = human.now();
 
-        const fps = 1000 / (now - timestamp.current);
-
-        console.log("FPS: ", fps)
-
+        const fps = Math.round(1000 / (now - timestamp.current));
         setFps(fps);
         timestamp.current = now;
         setFrame(prev => ++prev);
@@ -114,11 +119,31 @@ const RunHuman = ({ inputId, outputId, callback }: Props) => {
     if (!videoRef.current || !canvasRef.current || !human || !human.result) return null;
     if (!videoRef.current.paused) {
         const interpolated = human.next(human.result);
-
-        if (callback) callback(interpolated);
-
         human.draw.canvas(videoRef.current, canvasRef.current);
         human.draw.all(canvasRef.current, interpolated);
+    }
+
+    if (videoRef.current.paused) {
+        if (!faceInfoCb) return null;
+        const interpolated = human.next(human.result);
+
+        const image = canvasRef?.current?.getContext('2d')?.getImageData(0, 0, canvasRef.current.width, canvasRef.current.height);
+        if (!image) return null;
+
+        const saveToRecordPayload = {
+            name: `RANDOM-${fps}`,
+            desc: interpolated.face[0].embedding || [],
+            image
+        }
+
+        database.save(saveToRecordPayload)
+
+        faceInfoCb({
+            face: interpolated,
+            image
+        });
+
+        sourceRef.current?.getContext('2d')?.putImageData(image, 0, 0);
     }
 
     return null;

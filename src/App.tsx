@@ -7,12 +7,15 @@ function App() {
     <div>
       <canvas id="canvas" />
       <video id="video" autoPlay muted />
+      <canvas id="source" />
       <InitWebCam
         elementId="video"
       />
       <RunHuman
         inputId="video"
         outputId="canvas"
+        sourceId="source"
+        faceInfoCb={console.log}
       />
     </div>
   )

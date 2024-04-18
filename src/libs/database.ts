@@ -4,7 +4,7 @@ const table = 'person'
 interface FaceRecord {
     id: number
     name: string
-    desc: string[]
+    desc: number[]
     image: ImageData
 }
 
@@ -60,9 +60,8 @@ export class Database {
         })
     }
 
-    public async save(record: FaceRecord): Promise<boolean> {
-        const { id, ...payload } = record;
-        this.db?.transaction([table], 'readwrite').objectStore(table).put(payload);
+    public async save(record: Omit<FaceRecord, "id">): Promise<boolean> {
+        this.db?.transaction([table], 'readwrite').objectStore(table).put(record);
         return true;
     }
 
