@@ -13,6 +13,21 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+#root {
+  display: flex;
+  place-items: center;
+  min-width: 100vw;
+  min-height: 100vh;
+
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.6em;
+  padding: 1.6em;
+}
+
 a {
   font-weight: 500;
   color: #646cff;

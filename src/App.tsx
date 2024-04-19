@@ -24,7 +24,7 @@ function App() {
         resetRef={resetRef!}
         moreInfo={false}
       />
-      <div>
+      <div className="grid">
         <button ref={saveRef}>Save</button>
         <button ref={resetRef}>Reset</button>
       </div>

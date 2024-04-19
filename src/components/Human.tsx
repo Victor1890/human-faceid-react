@@ -64,16 +64,12 @@ const RunHuman = ({
     const [ready, setReady] = useState(false);
     const [frame, setFrame] = useState(0);
     const timestamp = useRef(0);
-    // const [fps, setFps] = useState(0);
-    // const [face, setFace] = useState<Result>();
 
     const detect = async () => {
         if (!human || !videoRef.current || !canvasRef.current) return;
         await human.detect(videoRef.current);
         const now = human.now();
 
-        // const fps = Math.round(1000 / (now - timestamp.current));
-        // setFps(fps);
         timestamp.current = now;
         setFrame(prev => ++prev);
     }
@@ -103,8 +99,11 @@ const RunHuman = ({
         if (videoRef.current) {
             videoRef.current.onresize = () => {
                 if (canvasRef.current) {
-                    // canvasRef.current.width = videoRef.current!.clientWidth;
-                    // canvasRef.current.height = videoRef.current!.clientHeight;
+                    canvasRef.current.width = videoRef.current!.videoWidth;
+                    canvasRef.current.height = videoRef.current!.videoHeight;
+
+                    canvasRef.current.style.width = '50%';
+                    canvasRef.current.style.height = '50%';
                 }
             }
         }
@@ -162,12 +161,15 @@ const RunHuman = ({
             const image = canvasRef?.current?.getContext('2d')?.getImageData(0, 0, width, height);
             if (!image) return null;
 
-            sourceRef.current.width = width
-            sourceRef.current.height = height
+            sourceRef.current.width = videoRef.current!.videoWidth;
+            sourceRef.current.height = videoRef.current!.videoHeight;
+
+            sourceRef.current.style.display = 'block';
+
+            sourceRef.current.style.width = '50%';
+            sourceRef.current.style.height = '50%';
 
             sourceRef.current?.getContext('2d')?.putImageData(image, 0, 0);
-
-            // setFace(interpolated);
 
             if (typeof faceInfoCb === 'function') {
                 faceInfoCb?.({ face: interpolated });
@@ -175,7 +177,12 @@ const RunHuman = ({
         }
 
         resetRef.current.onclick = async () => {
-            console.log('reset')
+            if (!sourceRef.current || !canvasRef.current) return null;
+
+            sourceRef.current.style.display = 'none';
+
+            void videoRef.current?.play();
+
         }
     }, [
         resetRef,
