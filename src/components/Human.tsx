@@ -149,17 +149,13 @@ const RunHuman = ({
         if (!saveRef.current || !resetRef.current) return;
 
         saveRef.current.onclick = async () => {
-
             if (!sourceRef.current || !canvasRef.current) return null;
-            videoRef.current?.pause();
 
             const interpolated = human?.next(human.result);
-            if (!interpolated) return null;
+            if (!interpolated) throw new Error('No face detected');
 
-            const { width, height } = canvasRef.current
-
-            const image = canvasRef?.current?.getContext('2d')?.getImageData(0, 0, width, height);
-            if (!image) return null;
+            const image = canvasRef?.current?.getContext('2d')?.getImageData(0, 0, canvasRef.current.width, canvasRef.current.height);
+            if (!image) throw new Error('No image data');
 
             sourceRef.current.width = videoRef.current!.videoWidth;
             sourceRef.current.height = videoRef.current!.videoHeight;
@@ -170,10 +166,9 @@ const RunHuman = ({
             sourceRef.current.style.height = '50%';
 
             sourceRef.current?.getContext('2d')?.putImageData(image, 0, 0);
+            faceInfoCb?.({ face: interpolated });
 
-            if (typeof faceInfoCb === 'function') {
-                faceInfoCb?.({ face: interpolated });
-            }
+            void videoRef.current?.pause();
         }
 
         resetRef.current.onclick = async () => {
@@ -184,6 +179,7 @@ const RunHuman = ({
             void videoRef.current?.play();
 
         }
+
     }, [
         resetRef,
         saveRef,
