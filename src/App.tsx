@@ -41,7 +41,8 @@ function App() {
       <div className="table">
         <div className="table-header">
           <div className="header__item"><a id="name" className="filter__link" href="#">Name</a></div>
-          <div className="header__item"><a id="wins" className="filter__link filter__link--number" href="#">Wins</a></div>e
+          <div className="header__item"><a id="wins" className="filter_
+          _link filter__link--number" href="#">Wins</a></div>e
         </div>
         <div className="table-content">
           <div className="table-row">
