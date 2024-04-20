@@ -151,7 +151,10 @@ const RunHuman = ({
         saveRef.current.onclick = async () => {
             if (!sourceRef.current || !canvasRef.current) return null;
 
+
             const interpolated = human?.next(human.result);
+            console.log("human.result: ", human?.result)
+            console.log("interpolated: ", interpolated)
             if (!interpolated) throw new Error('No face detected');
 
             const image = canvasRef?.current?.getContext('2d')?.getImageData(0, 0, canvasRef.current.width, canvasRef.current.height);
