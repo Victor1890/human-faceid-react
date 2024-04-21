@@ -7,6 +7,7 @@ const database = Database.instance;
 const config: Partial<Config> = {
     cacheSensitivity: 0,
     debug: false,
+    backend: "webgpu",
     // modelBasePath: 'https://cdn.jsdelivr.net/npm/@vladmandic/human/models',
     modelBasePath: 'node_modules/@vladmandic/human-models/models',
     cacheModels: true,
@@ -35,7 +36,8 @@ const config: Partial<Config> = {
 }
 
 interface FaceInfo {
-    face?: Result
+    data: Result
+    width: number
 }
 
 interface Props {
@@ -46,7 +48,10 @@ interface Props {
     faceInfoCb?: (data: FaceInfo) => void,
     saveRef: MutableRefObject<HTMLButtonElement | null>
     resetRef: MutableRefObject<HTMLButtonElement | null>
+    setFps?: (fps: number) => void
 };
+
+let timestamp = 0
 
 const RunHuman = ({
     inputId,
@@ -56,6 +61,7 @@ const RunHuman = ({
     resetRef,
     moreInfo = false,
     faceInfoCb,
+    setFps
 }: Props) => {
     const videoRef = useRef<HTMLVideoElement | null>(null);
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -63,14 +69,20 @@ const RunHuman = ({
     const [human, setHuman] = useState<Human | undefined>();
     const [ready, setReady] = useState(false);
     const [frame, setFrame] = useState(0);
-    const timestamp = useRef(0);
 
     const detect = async () => {
         if (!human || !videoRef.current || !canvasRef.current) return;
+
+        if (videoRef.current.paused) {
+            setFrame(0);
+            return;
+        }
+
         await human.detect(videoRef.current);
         const now = human.now();
-
-        timestamp.current = now;
+        const _fps = 1000 / (now - timestamp);
+        setFps?.(_fps)
+        timestamp = now;
         setFrame(prev => ++prev);
     }
 
@@ -89,9 +101,9 @@ const RunHuman = ({
                     humanInstance.load(),
                     humanInstance.warmup()
                 ]).then(() => {
-                    setReady(true);
                     setHuman(humanInstance);
                     console.log('ready...');
+                    setReady(true);
                 });
             });
         });
@@ -154,11 +166,10 @@ const RunHuman = ({
             if (!sourceRef.current || !canvasRef.current || !videoRef.current) return null;
 
             const interpolated = human?.next(human.result);
-            console.log("human.result: ", human?.result)
             console.log("interpolated: ", interpolated)
             if (!interpolated) throw new Error('No face detected');
 
-            const image = canvasRef?.current?.getContext('2d')?.getImageData(0, 0, canvasRef.current.width, canvasRef.current.height);
+            const image = canvasRef?.current?.getContext('2d', { willReadFrequently: true })?.getImageData(0, 0, canvasRef.current.width, canvasRef.current.height);
             if (!image) throw new Error('No image data');
 
             sourceRef.current.width = videoRef.current.videoWidth;
@@ -169,8 +180,8 @@ const RunHuman = ({
             sourceRef.current.style.width = '50%';
             sourceRef.current.style.height = '50%';
 
-            sourceRef.current?.getContext('2d')?.putImageData(image, 0, 0);
-            faceInfoCb?.({ face: interpolated });
+            sourceRef.current?.getContext('2d', { willReadFrequently: true })?.putImageData(image, 0, 0);
+            faceInfoCb?.({ data: interpolated, width: canvasRef.current.width });
 
             videoRef.current.style.display = 'none';
             void videoRef.current?.pause();
@@ -183,6 +194,8 @@ const RunHuman = ({
             videoRef.current.style.display = 'none';
 
             void videoRef.current?.play();
+
+            detect()
 
         }
 

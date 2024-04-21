@@ -8,9 +8,12 @@ function App() {
   const saveRef = useRef<HTMLButtonElement | null>(null);
   const resetRef = useRef<HTMLButtonElement | null>(null);
   const [person, setPerson] = useState<PersonResult | null>(null)
+  const [fps, setFps] = useState(0)
 
   return (
     <div className='container'>
+      <h3>Face Recognition</h3>
+      <h3>FPS: {fps.toFixed(1).padStart(5, " ")}</h3>
       <canvas id="canvas" />
       <video id="video" autoPlay muted />
       <canvas id="source" style={{ display: "none" }} />
@@ -24,11 +27,29 @@ function App() {
         sourceId="source"
         saveRef={saveRef!}
         resetRef={resetRef!}
+        setFps={setFps}
         moreInfo={true}
-        faceInfoCb={({ face }) => {
-          const person = face?.persons[0]
+        faceInfoCb={({ data, width }) => {
+          const person = data?.persons[0]
           if (!person) return
+
           setPerson(person)
+
+          const face = person.face.annotations;
+
+          if (face?.leftEyeIris) {
+            const irisSize = Math.max(Math.abs(face.leftEyeIris[3][0] - face.leftEyeIris[1][0]), Math.abs(face.rightEyeIris[3][0] - face.rightEyeIris[1][0])) / width;
+            // pixel x and y distance of centers of left and right iris, you can use edges instead
+            const irisDistanceXY = [face.leftEyeIris[0][0] - face.rightEyeIris[0][0], face.leftEyeIris[0][1] - face.rightEyeIris[0][1]];
+            // absolute distance bewtween eyes in 0..1 range to account for head pitch (we can ignore yaw)
+            const irisDistance = Math.sqrt((irisDistanceXY[0] * irisDistanceXY[0]) + (irisDistanceXY[1] * irisDistanceXY[1])) / width;
+            // distance of eye from camera in meters
+            const cameraDistance = 1.17 / irisSize / 100;
+            // distance between eyes in meters
+            const eyesDistance = 1.17 * irisDistance / irisSize / 100;
+            console.log("data: ", cameraDistance, eyesDistance);
+          }
+
           console.log("person: ", person)
         }}
       />
