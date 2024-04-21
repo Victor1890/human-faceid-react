@@ -83,6 +83,8 @@ const RunHuman = ({
         database.settings().then(() => {
             import('@vladmandic/human').then((H) => {
                 const humanInstance = new (H as any).default(config) as Human;
+                if (!humanInstance) throw new Error('Human not initialized');
+
                 Promise.all([
                     humanInstance.load(),
                     humanInstance.warmup()
@@ -149,8 +151,7 @@ const RunHuman = ({
         if (!saveRef.current || !resetRef.current) return;
 
         saveRef.current.onclick = async () => {
-            if (!sourceRef.current || !canvasRef.current) return null;
-
+            if (!sourceRef.current || !canvasRef.current || !videoRef.current) return null;
 
             const interpolated = human?.next(human.result);
             console.log("human.result: ", human?.result)
@@ -160,8 +161,8 @@ const RunHuman = ({
             const image = canvasRef?.current?.getContext('2d')?.getImageData(0, 0, canvasRef.current.width, canvasRef.current.height);
             if (!image) throw new Error('No image data');
 
-            sourceRef.current.width = videoRef.current!.videoWidth;
-            sourceRef.current.height = videoRef.current!.videoHeight;
+            sourceRef.current.width = videoRef.current.videoWidth;
+            sourceRef.current.height = videoRef.current.videoHeight;
 
             sourceRef.current.style.display = 'block';
 
@@ -171,19 +172,24 @@ const RunHuman = ({
             sourceRef.current?.getContext('2d')?.putImageData(image, 0, 0);
             faceInfoCb?.({ face: interpolated });
 
+            videoRef.current.style.display = 'none';
             void videoRef.current?.pause();
         }
 
         resetRef.current.onclick = async () => {
-            if (!sourceRef.current || !canvasRef.current) return null;
+            if (!sourceRef.current || !canvasRef.current || !videoRef.current) return null;
 
             sourceRef.current.style.display = 'none';
+            videoRef.current.style.display = 'none';
 
             void videoRef.current?.play();
 
         }
 
     }, [
+        canvasRef,
+        videoRef,
+        sourceRef,
         resetRef,
         saveRef,
     ])

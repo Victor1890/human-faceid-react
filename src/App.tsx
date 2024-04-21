@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { Fragment, useRef, useState } from 'react';
 import RunHuman from './components/Human'
 import InitWebCam from './components/WebCam'
 import { PersonResult } from '@vladmandic/human'
@@ -24,7 +24,7 @@ function App() {
         sourceId="source"
         saveRef={saveRef!}
         resetRef={resetRef!}
-        moreInfo={false}
+        moreInfo={true}
         faceInfoCb={({ face }) => {
           const person = face?.persons[0]
           if (!person) return
@@ -62,12 +62,18 @@ function App() {
               <div className="table-data">{(person.face.age ?? 0)} age old</div>
             </div>
             {(person.face?.emotion) ? (
-              person.face.emotion.map((emotion, index) => (
-                <div className="table-row" key={`${emotion.emotion}-${index}`}>
-                  <div className="table-data">{emotion.emotion}</div>
-                  <div className="table-data">{(emotion.score ?? 0) * 100}%</div>
+              <Fragment>
+                <div className="table-row">
+                  <div className="table-data">Are you real?</div>
+                  <div className="table-data">{((person.face.real ?? 0) * 100).toFixed(2)}% / {((person.face.real ?? 0) * 100) >= 50 ? "✅" : "❌"}</div>
                 </div>
-              ))
+                {person.face.emotion.map((emotion, index) => (
+                  <div className="table-row" key={`${emotion.emotion}-${index}`}>
+                    <div className="table-data">{emotion.emotion}</div>
+                    <div className="table-data">{(emotion.score ?? 0) * 100}%</div>
+                  </div>
+                ))}
+              </Fragment>
             ) : null}
           </div>
         </div>
