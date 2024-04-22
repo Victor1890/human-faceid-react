@@ -1,8 +1,5 @@
 import { useState, useEffect, useRef, memo, MutableRefObject } from 'react';
 import type { Human, Config, Result } from '@vladmandic/human';
-import { Database } from '../libs/database'
-
-const database = Database.instance;
 
 const config: Partial<Config> = {
     cacheSensitivity: 0,
@@ -17,14 +14,9 @@ const config: Partial<Config> = {
     },
     face: {
         enabled: true,
-        detector: {
-            rotation: true,
-            minConfidence: 0.2,
-            return: true,
-            mask: true,
-        },
-        description: { enabled: true },
+        detector: { rotation: false, maxDetected: 100, minConfidence: 0.2, return: true, mask: false },
         iris: { enabled: true },
+        description: { enabled: true },
         emotion: { enabled: true },
         antispoof: { enabled: true },
         liveness: { enabled: true },
@@ -92,19 +84,17 @@ const RunHuman = ({
         canvasRef.current = document.getElementById(outputId) as HTMLCanvasElement || document.createElement('canvas');
         sourceRef.current = document.getElementById(sourceId) as HTMLCanvasElement || document.createElement('source');
 
-        database.settings().then(() => {
-            import('@vladmandic/human').then((H) => {
-                const humanInstance = new (H as any).default(config) as Human;
-                if (!humanInstance) throw new Error('Human not initialized');
+        import('@vladmandic/human').then((H) => {
+            const humanInstance = new (H as any).default(config) as Human;
+            if (!humanInstance) throw new Error('Human not initialized');
 
-                Promise.all([
-                    humanInstance.load(),
-                    humanInstance.warmup()
-                ]).then(() => {
-                    setHuman(humanInstance);
-                    console.log('ready...');
-                    setReady(true);
-                });
+            Promise.all([
+                humanInstance.load(),
+                humanInstance.warmup()
+            ]).then(() => {
+                setHuman(humanInstance);
+                console.log('ready...');
+                setReady(true);
             });
         });
     }, [inputId, outputId]);
