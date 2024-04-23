@@ -104,17 +104,6 @@ video {
   align-items: center;
 }
 
-
-/* .container {
-  max-width: 1000px;
-  margin-right: auto;
-  margin-left: auto;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
-} */
-
 .table {
   width: 100%;
   border: 1px solid $color-form-highlight;
@@ -173,4 +162,15 @@ video {
     content: '(asc)';
   }
 
+}
+
+.ok {
+  position: absolute;
+  top: 64px;
+  right: 20px;
+  width: 150px;
+  background-color: grey;
+  padding: 4px;
+  color: black;
+  font-size: 14px
 }
