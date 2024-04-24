@@ -25,15 +25,21 @@ const InitWebCam = ({ video, canvas, source }: Props) => {
                 if (!video.current) throw new Error('Video element not found');
                 video.current.onloadeddata = () => resolve(true);
             });
+
+            video.current.style.display = 'none';
             video.current.srcObject = stream;
             void video.current.play();
+
+            if (source.current) {
+                source.current.style.display = 'none';
+            }
 
             ready.then(() => console.log('WebCam ready...'));
         }
 
         init();
 
-    }, [video.current]);
+    }, [video.current, source.current]);
 
     useEffect(() => {
 
@@ -108,11 +114,9 @@ const InitWebCam = ({ video, canvas, source }: Props) => {
 
     return (
         <Fragment>
-            <canvas
-                ref={canvas}
-            />
-            <video ref={video} autoPlay muted style={{ display: "none" }} />
-            <canvas ref={source} style={{ display: "none" }} />
+            <canvas ref={canvas} />
+            <video ref={video} autoPlay muted />
+            <canvas ref={source} />
         </Fragment>
     )
 };

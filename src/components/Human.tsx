@@ -2,11 +2,11 @@ import type { Config, Human, FaceResult } from '@vladmandic/human';
 import { MutableRefObject, memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 const config: Partial<Config> = {
-    cacheSensitivity: 0,
+    // cacheSensitivity: 0,
     debug: false,
     backend: "webgpu",
-    // modelBasePath: 'https://cdn.jsdelivr.net/npm/@vladmandic/human/models',
-    modelBasePath: 'node_modules/@vladmandic/human-models/models',
+    modelBasePath: 'https://cdn.jsdelivr.net/npm/@vladmandic/human/models',
+    // modelBasePath: 'node_modules/@vladmandic/human-models/models',
     cacheModels: true,
     filter: {
         enabled: true,
@@ -38,6 +38,8 @@ interface Props {
     setFps?: (fps: number) => void
 };
 
+let face: FaceResult | null = null;
+
 const RunHuman = ({
     videoRef,
     canvasRef,
@@ -48,16 +50,16 @@ const RunHuman = ({
     setFps
 }: Props) => {
     const [human, setHuman] = useState<Human | undefined>();
-    const [face, setFace] = useState<FaceResult | null>(null);
+    // const [face, setFace] = useState<FaceResult | null>(null);
     const [startTime, setStartTime] = useState(0);
 
     const timestamp = useMemo(() => ({ detect: 0, draw: 0 }), []);
 
     const options = useMemo(() => ({
         minConfidence: 0.6,
-        minSize: 224,
-        // maxTime: 30000,
-        maxTime: Infinity,
+        minSize: 805,
+        maxTime: 30000,
+        // maxTime: Infinity,
         blinkMin: 10,
         blinkMax: 800,
         threshold: 0.5,
@@ -107,9 +109,7 @@ const RunHuman = ({
         ok.antispoofCheck.status &&
         ok.livenessCheck.status &&
         ok.distance.status &&
-        ok.descriptor.status &&
-        ok.age.status &&
-        ok.gender.status
+        ok.descriptor.status
         , [JSON.stringify(ok)]);
 
     function drawValidationTests() {
@@ -142,9 +142,6 @@ const RunHuman = ({
 
         await human.detect(videoRef.current);
         const now = human.now();
-
-        // const interpolated = human.next(human.result)
-        // await human.draw.all(canvasRef.current, interpolated);
 
         ok.detectFPS.val = Math.round(10000 / (now - timestamp.detect)) / 10;
 
@@ -196,11 +193,11 @@ const RunHuman = ({
 
         ok.timeout.status = ok.elapsedMs.val < options.maxTime;
 
-        console.log("allIsOk: ", allIsOk())
+        // setFace(human.result.face[0]);
 
         if (allIsOk() || !ok.timeout.status) {
-            videoRef.current.pause();
-            return human.result.face[0];
+            void videoRef.current.pause();
+            return face = human.result.face[0];
         }
 
         ok.elapsedMs.val = Math.trunc(human.now() - startTime);
@@ -210,6 +207,9 @@ const RunHuman = ({
         return new Promise((resolve) => {
             const timeOut = setTimeout(async () => {
                 await drawLoop()
+
+                face = human.result.face[0];
+
                 clearTimeout(timeOut);
                 resolve(human.result.face[0]);
             }, 30);
@@ -218,21 +218,28 @@ const RunHuman = ({
 
     async function detectFace() {
 
-        if (!canvasRef.current || !human || !sourceRef.current || !videoRef.current) return;
+        if (!canvasRef.current || !human || !sourceRef.current || !videoRef.current) {
+            return console.log('detectFace: Missing elements');
+        }
 
-        videoRef.current.style.display = "none";
-
-        canvasRef.current.style.height = ""
-        canvasRef.current.getContext('2d')?.clearRect(0, 0, options.minSize, options.minSize);
+        // canvasRef.current.getContext('2d')?.clearRect(0, 0, options.minSize, options.minSize);
 
         if (!face?.tensor || !face?.embedding) {
-            console.log('No face detected');
+            console.log('detectFace: No face detected');
             return false;
         }
 
-        await human.tf.browser.draw(face.tensor, canvasRef.current);
-
         const image = canvasRef.current.getContext('2d')?.getImageData(0, 0, canvasRef.current.width, canvasRef.current.height) as ImageData;
+
+        console.log('Face detected: ', image);
+
+        void videoRef.current.pause();
+
+        videoRef.current.style.display = "none";
+        sourceRef.current.style.display = "block";
+
+        sourceRef.current.width = canvasRef.current.width;
+        sourceRef.current.height = canvasRef.current.height;
         sourceRef.current.getContext('2d')?.putImageData(image, 0, 0);
 
     }
@@ -263,25 +270,16 @@ const RunHuman = ({
             if (!human || !videoRef.current || !canvasRef.current || !sourceRef.current) return;
 
             await detectionLoop();
+
             setStartTime(human.now());
 
-            const face = await drawLoop()
+            await drawLoop()
 
-            setFace(face);
+            if (!face) throw new Error('Face not detected');
 
-            canvasRef.current.width = face?.tensor?.shape[1] || options.minSize;
-            canvasRef.current.height = face?.tensor?.shape[0] || options.minSize;
-
-            sourceRef.current.width = canvasRef.current.width;
-            sourceRef.current.height = canvasRef.current.height;
-
-            if (!allIsOk()) {
-                console.log('Face not detected');
-                return false
-            }
+            if (!allIsOk()) return
 
             return detectFace();
-
         }
 
         main();
