@@ -174,3 +174,12 @@ video {
   color: black;
   font-size: 14px
 }
+
+.face-id-effect {
+  background-color: red;
+  width: 100vw;
+  height: 100vh;
+  position: absolute;
+  z-index: 50;
+  opacity: .5;
+}

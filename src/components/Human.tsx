@@ -57,8 +57,8 @@ const RunHuman = ({
     const options = useMemo(() => ({
         minConfidence: 0.6,
         minSize: 200,
-        // maxTime: 30000,
-        maxTime: Infinity,
+        maxTime: 30000,
+        // maxTime: Infinity,
         blinkMin: 10,
         blinkMax: 800,
         threshold: 0.5,
