@@ -2,7 +2,6 @@ import type { Config, Human, FaceResult } from '@vladmandic/human';
 import { MutableRefObject, memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 const config: Partial<Config> = {
-    // cacheSensitivity: 0,
     debug: false,
     backend: "webgpu",
     modelBasePath: 'https://cdn.jsdelivr.net/npm/@vladmandic/human/models',
@@ -38,7 +37,7 @@ interface Props {
     setFps?: (fps: number) => void
 };
 
-let face: FaceResult | null = null;
+let faces: FaceResult[] = []
 
 const RunHuman = ({
     videoRef,
@@ -57,9 +56,9 @@ const RunHuman = ({
 
     const options = useMemo(() => ({
         minConfidence: 0.6,
-        minSize: 805,
-        maxTime: 30000,
-        // maxTime: Infinity,
+        minSize: 200,
+        // maxTime: 30000,
+        maxTime: Infinity,
         blinkMin: 10,
         blinkMax: 800,
         threshold: 0.5,
@@ -67,7 +66,7 @@ const RunHuman = ({
         distanceMax: 1.0,
         mask: config?.face?.detector?.mask,
         rotation: config?.face?.detector?.rotation,
-
+        minScore: 0.4,
         order: 2,
         multiplier: 25,
         min: 0.2,
@@ -109,7 +108,8 @@ const RunHuman = ({
         ok.antispoofCheck.status &&
         ok.livenessCheck.status &&
         ok.distance.status &&
-        ok.descriptor.status
+        ok.descriptor.status &&
+        ok.gender.status
         , [JSON.stringify(ok)]);
 
     function drawValidationTests() {
@@ -138,7 +138,11 @@ const RunHuman = ({
 
         if (videoRef.current.paused) return;
 
-        if (face?.tensor) human.tf.dispose(face.tensor);
+        if (faces.length) {
+            for (const face of faces) {
+                human.tf.dispose(face.tensor);
+            }
+        }
 
         await human.detect(videoRef.current);
         const now = human.now();
@@ -151,7 +155,7 @@ const RunHuman = ({
         requestAnimationFrame(detectionLoop);
     }
 
-    async function drawLoop(): Promise<FaceResult> {
+    async function drawLoop() {
 
         if (!human || !videoRef.current || !canvasRef.current) throw new Error('Human not initialized');
 
@@ -193,11 +197,12 @@ const RunHuman = ({
 
         ok.timeout.status = ok.elapsedMs.val < options.maxTime;
 
-        // setFace(human.result.face[0]);
+        faces = human.result.face
 
         if (allIsOk() || !ok.timeout.status) {
             void videoRef.current.pause();
-            return face = human.result.face[0];
+
+            return;
         }
 
         ok.elapsedMs.val = Math.trunc(human.now() - startTime);
@@ -208,10 +213,9 @@ const RunHuman = ({
             const timeOut = setTimeout(async () => {
                 await drawLoop()
 
-                face = human.result.face[0];
-
                 clearTimeout(timeOut);
-                resolve(human.result.face[0]);
+
+                resolve(true);
             }, 30);
         });
     }
@@ -222,25 +226,38 @@ const RunHuman = ({
             return console.log('detectFace: Missing elements');
         }
 
-        // canvasRef.current.getContext('2d')?.clearRect(0, 0, options.minSize, options.minSize);
-
-        if (!face?.tensor || !face?.embedding) {
+        if (!faces.length) {
             console.log('detectFace: No face detected');
             return false;
         }
 
         const image = canvasRef.current.getContext('2d')?.getImageData(0, 0, canvasRef.current.width, canvasRef.current.height) as ImageData;
 
-        console.log('Face detected: ', image);
-
         void videoRef.current.pause();
 
-        videoRef.current.style.display = "none";
+        canvasRef.current.style.display = "none";
         sourceRef.current.style.display = "block";
+
+        sourceRef.current.style.width = "50%"
+        sourceRef.current.style.height = "auto"
 
         sourceRef.current.width = canvasRef.current.width;
         sourceRef.current.height = canvasRef.current.height;
         sourceRef.current.getContext('2d')?.putImageData(image, 0, 0);
+
+        fetch("http://localhost:3000/api/face", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                faces
+            })
+        }).then(res => res.json()).then(data => {
+            console.log('Face detected #2: ', data);
+        }).catch(err => {
+            console.error('Face detected #2: ', err);
+        });
 
     }
 
@@ -256,7 +273,7 @@ const RunHuman = ({
             await Promise.all([
                 humanInstance.load(),
                 humanInstance.warmup()
-            ])
+            ]);
 
             setHuman(humanInstance);
 
@@ -275,16 +292,14 @@ const RunHuman = ({
 
             await drawLoop()
 
-            if (!face) throw new Error('Face not detected');
+            if (!faces.length || !allIsOk()) throw new Error('Face not detected');
 
-            if (!allIsOk()) return
-
-            return detectFace();
+            await detectFace();
         }
 
         main();
 
-    }, [human, videoRef.current, canvasRef.current, sourceRef.current]);
+    }, [human, videoRef, canvasRef, sourceRef]);
 
     return null
 };
