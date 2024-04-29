@@ -38,10 +38,10 @@ function App() {
 
         <div id="ok" ref={divRef}></div>
 
-        <div className="grid">
+        {/* <div className="grid">
           <button ref={saveRef}>Save</button>
           <button ref={resetRef}>Reset</button>
-        </div>
+        </div> */}
 
         {person && (
           <div className="table">
