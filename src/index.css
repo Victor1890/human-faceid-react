@@ -175,11 +175,30 @@ video {
   font-size: 14px
 }
 
-.face-id-effect {
+.face-effect {
+  display: none;
   background-color: red;
   width: 100vw;
   height: 100vh;
   position: absolute;
   z-index: 50;
   opacity: .5;
+  animation: changeColor 5s infinite;
+}
+
+@keyframes changeColor {
+  0% {
+    background-color: white;
+    /* Inicio: blanco */
+  }
+
+  50% {
+    background-color: red;
+    /* Mitad: rojo */
+  }
+
+  100% {
+    background-color: blue;
+    /* Final: azul */
+  }
 }

@@ -16,7 +16,7 @@ function App() {
 
   return (
     <Fragment>
-      <div id='random' className='face-id-effect' />
+      <div id='random' className='face-effect' />
       <div className='container'>
         <h3>Face Recognition</h3>
         <h3>FPS: {fps.toFixed(1).padStart(5, " ")}</h3>
