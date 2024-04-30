@@ -1,5 +1,5 @@
 import { Fragment, useRef, useState } from 'react';
-import RunHuman from './components/Human'
+import RunHuman from './components/human'
 import InitWebCam from './components/WebCam'
 import { PersonResult } from '@vladmandic/human'
 
@@ -11,7 +11,7 @@ function App() {
   const divRef = useRef<HTMLDivElement | null>(null);
   const saveRef = useRef<HTMLButtonElement | null>(null);
   const resetRef = useRef<HTMLButtonElement | null>(null);
-  const [person, setPerson] = useState<PersonResult | null>(null)
+  const [person] = useState<PersonResult | null>(null)
   const [fps, setFps] = useState(0)
 
   return (
@@ -36,7 +36,7 @@ function App() {
           setFps={setFps}
         />
 
-        <div id="ok" ref={divRef}></div>
+        <div ref={divRef}></div>
 
         {/* <div className="grid">
           <button ref={saveRef}>Save</button>

@@ -1,5 +1,6 @@
 import type { Config, Human, FaceResult } from '@vladmandic/human';
 import { MutableRefObject, memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { BLINK, OK, OPTIONS } from './rules'
 
 const config: Partial<Config> = {
     debug: false,
@@ -37,8 +38,6 @@ interface Props {
     setFps?: (fps: number) => void
 };
 
-let faces: FaceResult[] = []
-
 const RunHuman = ({
     videoRef,
     canvasRef,
@@ -49,74 +48,37 @@ const RunHuman = ({
     setFps
 }: Props) => {
     const [human, setHuman] = useState<Human | undefined>();
-    // const [face, setFace] = useState<FaceResult | null>(null);
     const [startTime, setStartTime] = useState(0);
 
     const timestamp = useMemo(() => ({ detect: 0, draw: 0 }), []);
 
+    let faces: FaceResult[] = useMemo(() => [], []);
+
     const options = useMemo(() => ({
-        minConfidence: 0.6,
-        minSize: 200,
-        maxTime: 30000,
-        // maxTime: Infinity,
-        blinkMin: 10,
-        blinkMax: 800,
-        threshold: 0.5,
-        distanceMin: 0.4,
-        distanceMax: 1.0,
+        ...OPTIONS,
         mask: config?.face?.detector?.mask,
         rotation: config?.face?.detector?.rotation,
-        minScore: 0.4,
-        order: 2,
-        multiplier: 25,
-        min: 0.2,
-        max: 0.8
-    }), []);
-
-    const ok = useMemo(() => ({
-        faceCount: { status: false, val: 0 },
-        faceConfidence: { status: false, val: 0 },
-        facingCenter: { status: false, val: 0 },
-        lookingCenter: { status: false, val: 0 },
-        blinkDetected: { status: false, val: 0 },
-        faceSize: { status: false, val: 0 },
-        antispoofCheck: { status: false, val: 0 },
-        livenessCheck: { status: false, val: 0 },
-        distance: { status: false, val: 0 },
-        age: { status: false, val: 0 },
-        gender: { status: false, val: 0 },
-        timeout: { status: true, val: 0 },
-        descriptor: { status: false, val: 0 },
-        elapsedMs: { status: undefined, val: 0 }, // total time while waiting for valid face
-        detectFPS: { status: undefined, val: 0 }, // mark detection fps performance
-        drawFPS: { status: undefined, val: 0 }, // mark redraw fps performance
-    }), []);
-
-    const blink = useMemo(() => ({
-        start: 0,
-        end: 0,
-        time: 0,
     }), []);
 
     const allIsOk = useCallback(() =>
-        ok.faceCount.status &&
-        ok.faceSize.status &&
-        ok.blinkDetected.status &&
-        ok.facingCenter.status &&
-        ok.lookingCenter.status &&
-        ok.faceConfidence.status &&
-        ok.antispoofCheck.status &&
-        ok.livenessCheck.status &&
-        ok.distance.status &&
-        ok.descriptor.status &&
-        ok.gender.status
-        , [JSON.stringify(ok)]);
+        OK.faceCount.status &&
+        OK.faceSize.status &&
+        OK.blinkDetected.status &&
+        OK.facingCenter.status &&
+        OK.lookingCenter.status &&
+        OK.faceConfidence.status &&
+        OK.antispoofCheck.status &&
+        OK.livenessCheck.status &&
+        OK.distance.status &&
+        OK.descriptor.status &&
+        OK.gender.status
+        , [JSON.stringify(OK)]);
 
     function drawValidationTests() {
-        if (!divRef.current) return;
+        if (!divRef.current || videoRef.current?.paused) return;
 
         let y = 32;
-        for (const [key, val] of Object.entries(ok)) {
+        for (const [key, val] of Object.entries(OK)) {
             let el = document.getElementById(`ok-${key}`);
             if (!el) {
                 el = document.createElement('div');
@@ -147,9 +109,9 @@ const RunHuman = ({
         await human.detect(videoRef.current);
         const now = human.now();
 
-        ok.detectFPS.val = Math.round(10000 / (now - timestamp.detect)) / 10;
+        OK.detectFPS.val = Math.round(10000 / (now - timestamp.detect)) / 10;
 
-        setFps?.(ok.detectFPS.val);
+        setFps?.(OK.detectFPS.val);
         timestamp.detect = now;
 
         requestAnimationFrame(detectionLoop);
@@ -162,50 +124,48 @@ const RunHuman = ({
         human.draw.canvas(videoRef.current, canvasRef.current);
 
         const now = human.now();
-        ok.drawFPS.val = Math.round(10000 / (now - timestamp.draw)) / 10;
+        OK.drawFPS.val = Math.round(10000 / (now - timestamp.draw)) / 10;
         timestamp.draw = now;
 
-        ok.faceCount.val = human.result.face.length;
-        ok.faceCount.status = ok.faceCount.val === 1;
+        OK.faceCount.val = human.result.face.length;
+        OK.faceCount.status = OK.faceCount.val === 1;
 
-        if (ok.faceCount.status) {
+        if (OK.faceCount.status) {
             const face = human.result.face[0];
-            const gestures: string[] = Object.values(human.result.gesture).map((gesture) => gesture.gesture); // flatten all gestures
-            if (gestures.includes('blink left eye') || gestures.includes('blink right eye')) blink.start = human.now(); // blink starts when eyes get closed
-            if (blink.start > 0 && !gestures.includes('blink left eye') && !gestures.includes('blink right eye')) blink.end = human.now(); // if blink started how long until eyes are back open
-            ok.blinkDetected.status = ok.blinkDetected.status || (Math.abs(blink.end - blink.start) > options.blinkMin && Math.abs(blink.end - blink.start) < options.blinkMax);
-            if (ok.blinkDetected.status && blink.time === 0) blink.time = Math.trunc(blink.end - blink.start);
-            ok.facingCenter.status = gestures.includes('facing center');
-            ok.lookingCenter.status = gestures.includes('looking center'); // must face camera and look at camera
-            ok.faceConfidence.val = face.faceScore || face.boxScore || 0;
-            ok.faceConfidence.status = ok.faceConfidence.val >= options.minConfidence;
-            ok.antispoofCheck.val = face.real || 0;
-            ok.antispoofCheck.status = ok.antispoofCheck.val >= options.minConfidence;
-            ok.livenessCheck.val = face.live || 0;
-            ok.livenessCheck.status = ok.livenessCheck.val >= options.minConfidence;
-            ok.faceSize.val = Math.min(face.box[2], face.box[3]);
-            ok.faceSize.status = ok.faceSize.val >= options.minSize;
-            ok.distance.val = face.distance || 0;
-            ok.distance.status = (ok.distance.val >= options.distanceMin) && (ok.distance.val <= options.distanceMax);
-            ok.descriptor.val = face.embedding?.length || 0;
-            ok.descriptor.status = ok.descriptor.val > 0;
-            ok.age.val = face.age || 0;
-            ok.age.status = ok.age.val > 0;
-            ok.gender.val = face.genderScore || 0;
-            ok.gender.status = ok.gender.val >= options.minConfidence;
+            const gestures: string[] = Object.values(human.result.gesture).map((gesture) => gesture.gesture);
+            if (gestures.includes('blink left eye') || gestures.includes('blink right eye')) BLINK.start = human.now();
+            if (BLINK.start > 0 && !gestures.includes('blink left eye') && !gestures.includes('blink right eye')) BLINK.end = human.now();
+            OK.blinkDetected.status = OK.blinkDetected.status || (Math.abs(BLINK.end - BLINK.start) > options.blinkMin && Math.abs(BLINK.end - BLINK.start) < options.blinkMax);
+            if (OK.blinkDetected.status && BLINK.time === 0) BLINK.time = Math.trunc(BLINK.end - BLINK.start);
+            OK.facingCenter.status = gestures.includes('facing center');
+            OK.lookingCenter.status = gestures.includes('looking center');
+            OK.faceConfidence.val = face.faceScore || face.boxScore || 0;
+            OK.faceConfidence.status = OK.faceConfidence.val >= options.minConfidence;
+            OK.antispoofCheck.val = face.real || 0;
+            OK.antispoofCheck.status = OK.antispoofCheck.val >= options.minConfidence;
+            OK.livenessCheck.val = face.live || 0;
+            OK.livenessCheck.status = OK.livenessCheck.val >= options.minConfidence;
+            OK.faceSize.val = Math.min(face.box[2], face.box[3]);
+            OK.faceSize.status = OK.faceSize.val >= options.minSize;
+            OK.distance.val = face.distance || 0;
+            OK.distance.status = (OK.distance.val >= options.distanceMin) && (OK.distance.val <= options.distanceMax);
+            OK.descriptor.val = face.embedding?.length || 0;
+            OK.descriptor.status = OK.descriptor.val > 0;
+            OK.age.val = face.age || 0;
+            OK.age.status = OK.age.val > 0;
+            OK.gender.val = face.genderScore || 0;
+            OK.gender.status = OK.gender.val >= options.minConfidence;
         }
 
-        ok.timeout.status = ok.elapsedMs.val < options.maxTime;
+        OK.timeout.status = OK.elapsedMs.val < options.maxTime;
 
         faces = human.result.face
 
-        if (allIsOk() || !ok.timeout.status) {
-            void videoRef.current.pause();
-
-            return;
+        if (allIsOk() || !OK.timeout.status) {
+            return videoRef.current.pause();
         }
 
-        ok.elapsedMs.val = Math.trunc(human.now() - startTime);
+        OK.elapsedMs.val = Math.trunc(human.now() - startTime);
 
         drawValidationTests();
 
