@@ -214,7 +214,9 @@ const RunHuman = ({
                 faces
             })
         }).then(res => res.json()).then(data => {
-            console.log('Face detected #2: ', data);
+            const doc = document.getElementById('similarity')
+            if (!doc) return
+            doc.innerText = `Similarity: ${data?.['Person 1']?.similarity * 100} %`;
         }).catch(err => {
             console.error('Face detected #2: ', err);
         });

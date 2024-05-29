@@ -37,11 +37,7 @@ function App() {
         />
 
         <div ref={divRef}></div>
-
-        {/* <div className="grid">
-          <button ref={saveRef}>Save</button>
-          <button ref={resetRef}>Reset</button>
-        </div> */}
+        <div id='similarity'></div>
 
         {person && (
           <div className="table">
