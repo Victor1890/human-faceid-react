@@ -80,7 +80,8 @@ To use the face recognition system, follow these steps:
 
 Here is a screenshot of the face recognition system in action:
 
-![Face Recognition System - DEMO](./path/to/your/screenshot.png)
+![Face Recognition System - DEMO](https://github.com/Victor1890/human-faceid-react/assets/46900196/036c2bf2-f7f9-445d-995c-648fb93ec1e2)
+
 
 ## Contributing
 
